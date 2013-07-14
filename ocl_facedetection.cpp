@@ -555,7 +555,7 @@ OCL_cvHaarDetectObjectsForROC( const CvArr* _img,
     CvSize winSize0 = cascade->orig_window_size;
     imgSmall = cvCreateMat( img->rows + 1, img->cols + 1, CV_8UC1 );
     //different scales
-int xx=0;    int num_scales = 0;
+    int num_scales = 0;
     for(float factor = 1; ; factor *= scaleFactor )
     {
         //winSize0: original window size in xml
@@ -671,7 +671,11 @@ int xx=0;    int num_scales = 0;
     int *sum_header, *tilted_mat_header;
     uchar* sum_mat_list = encodeMatrix(sum_mat_size, sum_header, sums);
     uchar* tilted_mat_list = encodeMatrix(tilted_mat_size, tilted_mat_header, tilteds);
-    //cl
+    //cli
+
+    double cl_t = (double)cvGetTickCount();
+
+
     cl_kernel cascadesum = clCreateKernel(x_prog, "cascadesum", &err);
 check(err);
     cl_mem rects_buffer = clCreateBuffer(
@@ -731,6 +735,8 @@ check(err);
     err = clSetKernelArg(cascadesum, 7, sizeof(cl_mem), &result_buffer);
     err = clSetKernelArg(cascadesum, 8, sizeof(cl_mem), &actual_buf);
     
+    double cl_t1 = (double)cvGetTickCount() - cl_t;
+    printf( "buf transfer time = %g ms\n", cl_t1/((double)cvGetTickFrequency()*1000.) );
     const size_t global_size[] = {num_rects-num_rects%16};
     const size_t local_size[] = {16};
     check(
@@ -749,6 +755,8 @@ check(err);
     check(clFinish(x_cmd_q));
     check( clEnqueueReadBuffer(x_cmd_q, result_buffer, CL_TRUE, 0, num_rects * sizeof(bool),
         result_list, 0, NULL, NULL));
+    cl_t = (double)cvGetTickCount() - cl_t;
+    printf( "OpenCL time = %g ms\n", cl_t/((double)cvGetTickFrequency()*1000.) );
     //??
     for (int i = 0; i < num_rects; ++i) {
       if (result_list[i]) {
