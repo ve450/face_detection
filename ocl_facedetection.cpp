@@ -663,7 +663,7 @@ int xx=0;    int num_scales = 0;
         const int LOCS_PER_THREAD = 1000;
         int stripCount = ((sz1.width/ystep)*(sz1.height + ystep-1)/ystep + LOCS_PER_THREAD/2)/LOCS_PER_THREAD;
         stripCount = std::min(std::max(stripCount, 1), 100);
-        cvSetImagesForHaarClassifierCascade( cascade, &sum1, &sqsum1, _tilted, 1. );
+        CL_cvSetImagesForHaarClassifierCascade( cascade, &sum1, &sqsum1, _tilted, 1. );
         CvHidHaarClassifierCascade* hid_cascade = cascade->hid_cascade;
         new_cascades.push_back(convertPointerToNonPointer(hid_cascade));
         cout << hid_cascade->sum.step << endl;
@@ -1034,3 +1034,241 @@ icvCreateHidHaarClassifierCascade( CvHaarClassifierCascade* cascade )
     return out;
 }
 
+void CL_cvSetImagesForHaarClassifierCascade( CvHaarClassifierCascade* _cascade,
+                                     const CvArr* _sum,
+                                     const CvArr* _sqsum,
+                                     const CvArr* _tilted_sum,
+                                     double scale )
+{
+    CvMat sum_stub, *sum = (CvMat*)_sum;
+    CvMat sqsum_stub, *sqsum = (CvMat*)_sqsum;
+    CvMat tilted_stub, *tilted = (CvMat*)_tilted_sum;
+    CvHidHaarClassifierCascade* cascade;
+    int coi0 = 0, coi1 = 0;
+    int i;
+    CvRect equRect;
+    double weight_scale;
+
+    if( !CV_IS_HAAR_CLASSIFIER(_cascade) )
+        CV_Error( !_cascade ? CV_StsNullPtr : CV_StsBadArg, "Invalid classifier pointer" );
+
+    if( scale <= 0 )
+        CV_Error( CV_StsOutOfRange, "Scale must be positive" );
+
+    sum = cvGetMat( sum, &sum_stub, &coi0 );
+    sqsum = cvGetMat( sqsum, &sqsum_stub, &coi1 );
+
+    if( coi0 || coi1 )
+        CV_Error( CV_BadCOI, "COI is not supported" );
+
+    if( !CV_ARE_SIZES_EQ( sum, sqsum ))
+        CV_Error( CV_StsUnmatchedSizes, "All integral images must have the same size" );
+
+    if( CV_MAT_TYPE(sqsum->type) != CV_64FC1 ||
+        CV_MAT_TYPE(sum->type) != CV_32SC1 )
+        CV_Error( CV_StsUnsupportedFormat,
+        "Only (32s, 64f, 32s) combination of (sum,sqsum,tilted_sum) formats is allowed" );
+
+    if( !_cascade->hid_cascade )
+        icvCreateHidHaarClassifierCascade(_cascade);
+
+    cascade = _cascade->hid_cascade;
+
+    if( cascade->has_tilted_features )
+    {
+        tilted = cvGetMat( tilted, &tilted_stub, &coi1 );
+
+        if( CV_MAT_TYPE(tilted->type) != CV_32SC1 )
+            CV_Error( CV_StsUnsupportedFormat,
+            "Only (32s, 64f, 32s) combination of (sum,sqsum,tilted_sum) formats is allowed" );
+
+        if( sum->step != tilted->step )
+            CV_Error( CV_StsUnmatchedSizes,
+            "Sum and tilted_sum must have the same stride (step, widthStep)" );
+
+        if( !CV_ARE_SIZES_EQ( sum, tilted ))
+            CV_Error( CV_StsUnmatchedSizes, "All integral images must have the same size" );
+        cascade->tilted = *tilted;
+    }
+
+    _cascade->scale = scale;
+    _cascade->real_window_size.width = cvRound( _cascade->orig_window_size.width * scale );
+    _cascade->real_window_size.height = cvRound( _cascade->orig_window_size.height * scale );
+
+    cascade->sum = *sum;
+    cascade->sqsum = *sqsum;
+
+    equRect.x = equRect.y = cvRound(scale);
+    equRect.width = cvRound((_cascade->orig_window_size.width-2)*scale);
+    equRect.height = cvRound((_cascade->orig_window_size.height-2)*scale);
+    weight_scale = 1./(equRect.width*equRect.height);
+    cascade->inv_window_area = weight_scale;
+
+    cascade->p0 = sum_elem_ptr(*sum, equRect.y, equRect.x);
+    cascade->p1 = sum_elem_ptr(*sum, equRect.y, equRect.x + equRect.width );
+    cascade->p2 = sum_elem_ptr(*sum, equRect.y + equRect.height, equRect.x );
+    cascade->p3 = sum_elem_ptr(*sum, equRect.y + equRect.height,
+                                     equRect.x + equRect.width );
+    cascade->p0_loc[0] = equRect.y;
+    cascade->p0_loc[1] = equRect.x;
+    cascade->p1_loc[0] = equRect.y;
+    cascade->p1_loc[1] = equRect.x + equRect.width;
+    cascade->p2_loc[0] = equRect.y + equRect.height;
+    cascade->p2_loc[1] = equRect.x;
+    cascade->p3_loc[0] = equRect.y + equRect.height;
+    cascade->p3_loc[1] = equRect.x + equRect.width;
+
+    cascade->pq0 = sqsum_elem_ptr(*sqsum, equRect.y, equRect.x);
+    cascade->pq1 = sqsum_elem_ptr(*sqsum, equRect.y, equRect.x + equRect.width );
+    cascade->pq2 = sqsum_elem_ptr(*sqsum, equRect.y + equRect.height, equRect.x );
+    cascade->pq3 = sqsum_elem_ptr(*sqsum, equRect.y + equRect.height,
+                                          equRect.x + equRect.width );
+
+    /* init pointers in haar features according to real window size and
+       given image pointers */
+    for( i = 0; i < _cascade->count; i++ )
+    {
+        int j, k, l;
+        for( j = 0; j < cascade->stage_classifier[i].count; j++ )
+        {
+            for( l = 0; l < cascade->stage_classifier[i].classifier[j].count; l++ )
+            {
+                CvHaarFeature* feature =
+                    &_cascade->stage_classifier[i].classifier[j].haar_feature[l];
+                /* CvHidHaarClassifier* classifier =
+                    cascade->stage_classifier[i].classifier + j; */
+                CvHidHaarFeature* hidfeature =
+                    &cascade->stage_classifier[i].classifier[j].node[l].feature;
+                double sum0 = 0, area0 = 0;
+                CvRect r[3];
+
+                int base_w = -1, base_h = -1;
+                int new_base_w = 0, new_base_h = 0;
+                int kx, ky;
+                int flagx = 0, flagy = 0;
+                int x0 = 0, y0 = 0;
+                int nr;
+
+                /* align blocks */
+                for( k = 0; k < CV_HAAR_FEATURE_MAX; k++ )
+                {
+                    if( !hidfeature->rect[k].p0 )
+                        break;
+                    r[k] = feature->rect[k].r;
+                    base_w = (int)CV_IMIN( (unsigned)base_w, (unsigned)(r[k].width-1) );
+                    base_w = (int)CV_IMIN( (unsigned)base_w, (unsigned)(r[k].x - r[0].x-1) );
+                    base_h = (int)CV_IMIN( (unsigned)base_h, (unsigned)(r[k].height-1) );
+                    base_h = (int)CV_IMIN( (unsigned)base_h, (unsigned)(r[k].y - r[0].y-1) );
+                }
+
+                nr = k;
+
+                base_w += 1;
+                base_h += 1;
+                kx = r[0].width / base_w;
+                ky = r[0].height / base_h;
+
+                if( kx <= 0 )
+                {
+                    flagx = 1;
+                    new_base_w = cvRound( r[0].width * scale ) / kx;
+                    x0 = cvRound( r[0].x * scale );
+                }
+
+                if( ky <= 0 )
+                {
+                    flagy = 1;
+                    new_base_h = cvRound( r[0].height * scale ) / ky;
+                    y0 = cvRound( r[0].y * scale );
+                }
+
+                for( k = 0; k < nr; k++ )
+                {
+                    CvRect tr;
+                    double correction_ratio;
+
+                    if( flagx )
+                    {
+                        tr.x = (r[k].x - r[0].x) * new_base_w / base_w + x0;
+                        tr.width = r[k].width * new_base_w / base_w;
+                    }
+                    else
+                    {
+                        tr.x = cvRound( r[k].x * scale );
+                        tr.width = cvRound( r[k].width * scale );
+                    }
+
+                    if( flagy )
+                    {
+                        tr.y = (r[k].y - r[0].y) * new_base_h / base_h + y0;
+                        tr.height = r[k].height * new_base_h / base_h;
+                    }
+                    else
+                    {
+                        tr.y = cvRound( r[k].y * scale );
+                        tr.height = cvRound( r[k].height * scale );
+                    }
+
+#if CV_ADJUST_WEIGHTS
+                    {
+                    // RAINER START
+                    const float orig_feature_size =  (float)(feature->rect[k].r.width)*feature->rect[k].r.height;
+                    const float orig_norm_size = (float)(_cascade->orig_window_size.width)*(_cascade->orig_window_size.height);
+                    const float feature_size = float(tr.width*tr.height);
+                    //const float normSize    = float(equRect.width*equRect.height);
+                    float target_ratio = orig_feature_size / orig_norm_size;
+                    //float isRatio = featureSize / normSize;
+                    //correctionRatio = targetRatio / isRatio / normSize;
+                    correction_ratio = target_ratio / feature_size;
+                    // RAINER END
+                    }
+#else
+                    correction_ratio = weight_scale * (!feature->tilted ? 1 : 0.5);
+#endif
+
+                    hidfeature->tilted = feature->tilted;
+                    if( !feature->tilted )
+                    {
+                        hidfeature->rect[k].p0 = sum_elem_ptr(*sum, tr.y, tr.x);
+                        hidfeature->rect[k].p1 = sum_elem_ptr(*sum, tr.y, tr.x + tr.width);
+                        hidfeature->rect[k].p2 = sum_elem_ptr(*sum, tr.y + tr.height, tr.x);
+                        hidfeature->rect[k].p3 = sum_elem_ptr(*sum, tr.y + tr.height, tr.x + tr.width);
+                        hidfeature->rect[k].p0_loc[0] = tr.y;
+                        hidfeature->rect[k].p0_loc[1] = tr.x;
+                        hidfeature->rect[k].p1_loc[0] = tr.y;
+                        hidfeature->rect[k].p1_loc[1] = tr.x + tr.width;
+                        hidfeature->rect[k].p2_loc[0] = tr.y + tr.height;
+                        hidfeature->rect[k].p2_loc[1] = tr.x;
+                        hidfeature->rect[k].p3_loc[0] = tr.y + tr.height;
+                        hidfeature->rect[k].p3_loc[1] = tr.x + tr.width;
+                    }
+                    else
+                    {
+                        hidfeature->rect[k].p2 = sum_elem_ptr(*tilted, tr.y + tr.width, tr.x + tr.width);
+                        hidfeature->rect[k].p3 = sum_elem_ptr(*tilted, tr.y + tr.width + tr.height,
+                                                              tr.x + tr.width - tr.height);
+                        hidfeature->rect[k].p0 = sum_elem_ptr(*tilted, tr.y, tr.x);
+                        hidfeature->rect[k].p1 = sum_elem_ptr(*tilted, tr.y + tr.height, tr.x - tr.height);
+                        hidfeature->rect[k].p0_loc[0] = tr.y;
+                        hidfeature->rect[k].p0_loc[1] = tr.x;
+                        hidfeature->rect[k].p1_loc[0] = tr.y + tr.height;
+                        hidfeature->rect[k].p1_loc[1] = tr.x - tr.height;
+                        hidfeature->rect[k].p2_loc[0] = tr.y + tr.width;
+                        hidfeature->rect[k].p2_loc[1] = tr.x + tr.width;
+                        hidfeature->rect[k].p3_loc[0] = tr.y + tr.height;
+                        hidfeature->rect[k].p3_loc[1] = tr.x + tr.width;
+                    }
+
+                    hidfeature->rect[k].weight = (float)(feature->rect[k].weight * correction_ratio);
+
+                    if( k == 0 )
+                        area0 = tr.width * tr.height;
+                    else
+                        sum0 += hidfeature->rect[k].weight * tr.width * tr.height;
+                }
+
+                hidfeature->rect[0].weight = (float)(-sum0/area0);
+            } /* l */
+        } /* j */
+    }
+}
