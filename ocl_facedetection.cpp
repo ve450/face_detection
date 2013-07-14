@@ -229,7 +229,7 @@ void setupCL() {
 }
 
 
-const string cascadeName = "/home/zichao/opencv-2.4.5/data/haarcascades/haarcascade_frontalface_alt.xml";
+const string cascadeName = "haarcascade_frontalface_alt.xml";
 const string nestedCascadeName = "/home/zichao/opencv-2.4.5/data/haarcascades/haarcascade_eye_tree_eyeglasses.xml";
 
 int main( int argc, const char** argv )
