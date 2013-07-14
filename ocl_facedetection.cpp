@@ -235,69 +235,6 @@ const string nestedCascadeName = "/home/zichao/opencv-2.4.5/data/haarcascades/ha
 int main( int argc, const char** argv )
 {
   setupCL();
-
-	//testT a[10];
-	//for (int i = 0; i < 10; ++i) {
-    //a[i].left = i;
-    //a[i].right = 10 - i;
-    //a[i].res = 0;
-  //}
-  //cl_mem aBuffer = clCreateBuffer(
-      //x_context,
-      //CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR,
-      //10 * sizeof(testT), a, &err);
-  //check(err);
-  //cl_kernel saxpy = clCreateKernel(x_prog, "SAXPY", &err);
-  //check(err);
-  //err = clSetKernelArg(saxpy, 0, sizeof(aBuffer), &aBuffer);
-  //check(err);
-  //uint two = 2;
-  //err = clSetKernelArg(saxpy, 1, sizeof(uint), &two);
-  //check(err);
-
-	//// -----------------------------------------------------------
-
-  //const size_t global_size[] = {320};
-  //check(
-    //clEnqueueNDRangeKernel(
-      //x_cmd_q,
-      //saxpy,
-      //1,
-      //NULL,
-      //global_size,
-      //NULL,
-      //0,
-      //NULL,
-      //NULL
-    //)
-  //);
-
-  ////uint b_out[10];
-  ////clEnqueueReadBuffer(x_cmd_q, bBuffer, CL_TRUE, 0, 10*sizeof(uint),
-    ////b_out, 0, NULL, NULL);
-	//testT *a_out = (testT *) clEnqueueMapBuffer(x_cmd_q,
-					//aBuffer,
-					//CL_TRUE,
-					//0,
-					//0,
-					//10 * sizeof(testT),
-					//0,
-					//NULL,
-					//NULL,
-					//&err);
-	//check(err);
-  //check(clFinish(x_cmd_q));
-  
-  //for (int i = 0; i < 10; ++i) {
-    //cout << a_out[i].res << ' ';
-  //}
-  //cout << endl;
-
-  //clReleaseKernel(saxpy);
-  //clReleaseMemObject(aBuffer);
-  ////cl end
-
-//<-------------------------------------------------------->
     CvCapture* capture = 0;
     Mat frame, frameCopy, image;
     const string scaleOpt = "--scale=";
@@ -637,14 +574,13 @@ int xx=0;    int num_scales = 0;
         CvMat img1, sum1, sqsum1, norm1, tilted1, mask1;
         CvMat* _tilted = 0;
 
-        if( sz1.width <= 0 || sz1.height <= 0 ) { //printf("scale times: %d ", iii);
-            break;}
-        if( winSize.width > maxSize.width || winSize.height > maxSize.height ) {  //printf("scale times: %d ", iii);
+        if( sz1.width <= 0 || sz1.height <= 0 ) 
+            break;
+        if( winSize.width > maxSize.width || winSize.height > maxSize.height ) {  
 
             break;}
         if( winSize.width < minSize.width || winSize.height < minSize.height ) 
             continue;
-//iii++;
         img1 = cvMat( sz.height, sz.width, CV_8UC1, imgSmall->data.ptr );
         sum1 = cvMat( sz.height+1, sz.width+1, CV_32SC1, sum->data.ptr );
         sqsum1 = cvMat( sz.height+1, sz.width+1, CV_64FC1, sqsum->data.ptr );
@@ -653,9 +589,6 @@ int xx=0;    int num_scales = 0;
             tilted1 = cvMat( sz.height+1, sz.width+1, CV_32SC1, tilted->data.ptr );
             _tilted = &tilted1;
         }
-        //norm1 = cvMat( sz1.height, sz1.width, CV_32FC1, normImg ? normImg->data.ptr : 0 );
-        //mask1 = cvMat( sz1.height, sz1.width, CV_8UC1, temp->data.ptr );
-        
         cvResize( img, &img1, CV_INTER_LINEAR );
         cvIntegral( &img1, &sum1, &sqsum1, _tilted );
 
@@ -813,16 +746,11 @@ check(err);
         NULL
       )
     );
-    check(clFinish(x_cmd_q));cout<<"!!:"<<num_rects<<endl;
+    check(clFinish(x_cmd_q));
     check( clEnqueueReadBuffer(x_cmd_q, result_buffer, CL_TRUE, 0, num_rects * sizeof(bool),
         result_list, 0, NULL, NULL));
     //??
-//cout<<"resultlist: "<<result_list[13237]<<endl;
-//assert(0);
     for (int i = 0; i < num_rects; ++i) {
-  //    if (result_list[i]==2) {
-//cout<<"x: "<<rects[i].x<<" y: "<<rects[i].y<<" factor: " << rects[i].factor<<endl;
-    //  }
       if (result_list[i]) {
 //cout<<"x: "<<rects[i].x<<" y: "<<rects[i].y<<" factor: " << rects[i].factor<<endl;
         float factor = rects[i].factor;
