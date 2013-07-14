@@ -13,6 +13,12 @@ const int icv_object_win_border = 1;
 using namespace cv;
 struct getRect { Rect operator ()(const CvAvgComp& e) const { return e.rect; } };
 
+#define sum_elem_ptr(sum,row,col)  \
+    ((sumtype*)CV_MAT_ELEM_PTR_FAST((sum),(row),(col),sizeof(sumtype)))
+
+#define sqsum_elem_ptr(sqsum,row,col)  \
+    ((sqsumtype*)CV_MAT_ELEM_PTR_FAST((sqsum),(row),(col),sizeof(sqsumtype)))
+
 #define calc_sum(rect,offset) \
     ((rect).p0[offset] - (rect).p1[offset] - (rect).p2[offset] + (rect).p3[offset])
 
@@ -190,6 +196,12 @@ static int CascadeSum_ParallelBody(//int x, int y,
                                       const CvHidHaarClassifierCascade* cascade,
                                       double& stage_sum, 
                                       int start_stage);
+
+void CL_cvSetImagesForHaarClassifierCascade( CvHaarClassifierCascade* _cascade,
+                                     const CvArr* _sum,
+                                     const CvArr* _sqsum,
+                                     const CvArr* _tilted_sum,
+                                     double scale );
 
 class OCL_CascadeClassifier : public cv::CascadeClassifier 
 {
