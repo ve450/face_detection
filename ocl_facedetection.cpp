@@ -430,6 +430,7 @@ void detectAndDraw( Mat& img, OCL_CascadeClassifier& cascade,
         Size(30, 30) );
     t = (double)cvGetTickCount() - t;
     printf( "detection time = %g ms\n", t/((double)cvGetTickFrequency()*1000.) );
+    printf( "--------------------------------------\n");
     //draw
     for( vector<Rect>::const_iterator r = faces.begin(); r != faces.end(); r++, i++ )
     {
@@ -599,7 +600,7 @@ OCL_cvHaarDetectObjectsForROC( const CvArr* _img,
         CL_cvSetImagesForHaarClassifierCascade( cascade, &sum1, &sqsum1, _tilted, 1. );
         CvHidHaarClassifierCascade* hid_cascade = cascade->hid_cascade;
         new_cascades.push_back(convertPointerToNonPointer(hid_cascade));
-        cout << hid_cascade->sum.step << endl;
+        //cout << hid_cascade->sum.step << endl;
         Mat* tmp_mat = new Mat(&hid_cascade->sum, 1);
         sums.push_back(tmp_mat);
         tmp_mat = new Mat(&hid_cascade->tilted, 1);
