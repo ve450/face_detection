@@ -667,6 +667,7 @@ OCL_cvHaarDetectObjectsForROC( const CvArr* _img,
     NewHidHaarClassifierCascade* new_cascade_list = new NewHidHaarClassifierCascade[num_scales];
     for (int i = 0; i < num_scales; ++i) {
       new_cascade_list[i] = *new_cascades[i];
+      delete new_cascades[i];
     }
   // assert(0); 
     bool result_list[num_rects];
@@ -674,53 +675,62 @@ OCL_cvHaarDetectObjectsForROC( const CvArr* _img,
     int *sum_header, *tilted_mat_header;
     uchar* sum_mat_list = encodeMatrix(sum_mat_size, sum_header, sums);
     uchar* tilted_mat_list = encodeMatrix(tilted_mat_size, tilted_mat_header, tilteds);
+    delete[] tilted_mat_header;
+    for ( int k = 0; k < sums.size(); k++) {
+	if( tilteds.size() > 0) delete tilteds[k];
+   	delete sums[k];
+    }
     //cli
 
     double cl_t = (double)cvGetTickCount();
 
 
     cl_kernel cascadesum = clCreateKernel(x_prog, "cascadesum", &err);
-check(err);
+    check(err);
     cl_mem rects_buffer = clCreateBuffer(
         x_context,
         CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
         3 * num_rects * sizeof(int), rects_arr, &err);
-check(err);
+    check(err);
     cl_mem vnf_buffer = clCreateBuffer(
         x_context,
         CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
         num_rects * sizeof(float), vnf, &err);
-check(err);
+    check(err);
     cl_mem classifier_buffer = clCreateBuffer(
         x_context,
         CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
         num_scales * sizeof(NewHidHaarClassifierCascade), new_cascade_list, &err);
-check(err);
+    delete[] new_cascade_list;
+    check(err);
     cl_mem sum_buffer = clCreateBuffer(
         x_context,
         CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
         sum_mat_size * sizeof(uchar), sum_mat_list, &err);
-check(err);
+    check(err);
+    delete[] sum_mat_list;
 /*    cl_mem tilted_buffer = clCreateBuffer(
         x_context,
         CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
         0 * sizeof(uchar), NULL, &err);//printf("tilted size is : %d\n", tilted_mat_size);
 check(err);*/
+    delete[] tilted_mat_list;
     cl_mem mat_len_buffer = clCreateBuffer(
         x_context,
         CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
         sizeof(int), &sum_mat_size, &err);
-check(err);
+    check(err);
     cl_mem mat_header_buffer = clCreateBuffer(
         x_context,
         CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
         (sum_header[0] * 3 + 1) * sizeof(int), sum_header, &err);
-check(err);
+    check(err);
+    delete[] sum_header;
     cl_mem result_buffer = clCreateBuffer(
         x_context,
         CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR,
         num_rects * sizeof(bool), result_list, &err);
-check(err);
+    check(err);
     cl_mem actual_buf = clCreateBuffer(
 	x_context,
 	CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
@@ -759,6 +769,17 @@ check(err);
     check(clFinish(x_cmd_q));
     check( clEnqueueReadBuffer(x_cmd_q, result_buffer, CL_TRUE, 0, num_rects * sizeof(bool),
         result_list, 0, NULL, NULL));
+    //release CL objects
+    clReleaseMemObject(rects_buffer);
+    clReleaseMemObject(vnf_buffer);
+    clReleaseMemObject(classifier_buffer);
+    clReleaseMemObject(sum_buffer);
+    clReleaseMemObject(mat_len_buffer);
+    clReleaseMemObject(mat_header_buffer);
+    clReleaseMemObject(result_buffer);
+    clReleaseMemObject(actual_buf);
+    clReleaseKernel(cascadesum);
+   
     cl_t = (double)cvGetTickCount() - cl_t;
     printf( "OpenCL time = %g ms\n", cl_t/((double)cvGetTickFrequency()*1000.) );
     //??
