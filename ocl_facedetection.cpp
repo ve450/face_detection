@@ -527,6 +527,8 @@ OCL_cvHaarDetectObjectsForROC( const CvArr* _img,
     {
         maxSize.height = img->rows;
         maxSize.width = img->cols;
+        cout << "rows: " << img->rows << endl;
+        cout << "cols: " << img->cols << endl;
     }
 
     temp = cvCreateMat( img->rows, img->cols, CV_8UC1 );
@@ -738,7 +740,8 @@ check(err);
     
     double cl_t1 = (double)cvGetTickCount() - cl_t;
     printf( "buf transfer time = %g ms\n", cl_t1/((double)cvGetTickFrequency()*1000.) );
-    const size_t global_size[] = {num_rects-num_rects%16};
+    const size_t global_size[] = {num_rects+16-num_rects%16};
+    cout << "global_size: " << num_rects+16-num_rects%16 << endl;
     const size_t local_size[] = {16};
     check(
       clEnqueueNDRangeKernel(
@@ -772,8 +775,6 @@ check(err);
     rectList.resize(allCandidates.size());
     if(!allCandidates.empty())
         std::copy(allCandidates.begin(), allCandidates.end(), rectList.begin());
-
-    //??
 
     if( minNeighbors != 0 || findBiggestObject )
     {
