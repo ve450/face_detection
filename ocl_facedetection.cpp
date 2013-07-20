@@ -44,6 +44,9 @@ cl_int err;
 
 cl_uint work_dim = 1;
 const float kScaleFactor = 1.3f;
+const int kFirstKernelStart = 0;
+const int kSecondKernelStart = 3;
+const int kThirdKernelStart = 20;
 
 //cl parameters
 cl_platform_id 		x_platform;
@@ -655,13 +658,16 @@ OCL_cvHaarDetectObjectsForROC( const CvArr* _img,
         num_scales++;
     }
     int num_rects = rects.size();
+    int total_rects = rects.size();
     int rects_arr[num_rects][3];
     float vnf[num_rects];
+    int actual_ids[num_rects];
     for (int i = 0; i < rects.size(); ++i) {
       rects_arr[i][0] = rects[i].scale_num;
       rects_arr[i][1] = rects[i].y;
       rects_arr[i][2] = rects[i].x;
       vnf[i] = rects[i].variance_norm_factor;
+      actual_ids[i] = i;
 //if((rects[i].scale_num==3)&&(rects[i].x==34)&&(rects[i].y==63)) cout<<"tag "<<i<<endl;//assert(0);
     }//assert(0);
     NewHidHaarClassifierCascade* new_cascade_list = new NewHidHaarClassifierCascade[num_scales];
@@ -671,8 +677,13 @@ OCL_cvHaarDetectObjectsForROC( const CvArr* _img,
     }
   // assert(0); 
     bool result_list[num_rects];
+    for (int i=0; i<num_rects; i++) {
+      result_list[i] = true;
+    }
     int sum_mat_size, tilted_mat_size;
     int *sum_header, *tilted_mat_header;
+    int start_stage;
+    int end_stage;
     uchar* sum_mat_list = encodeMatrix(sum_mat_size, sum_header, sums);
     uchar* tilted_mat_list = encodeMatrix(tilted_mat_size, tilted_mat_header, tilteds);
     delete[] tilted_mat_header;
@@ -685,7 +696,7 @@ OCL_cvHaarDetectObjectsForROC( const CvArr* _img,
     double cl_t = (double)cvGetTickCount();
 
 
-    cl_kernel cascadesum = clCreateKernel(x_prog, "cascadesum", &err);
+    cl_kernel cascadesum = clCreateKernel(x_prog, "cascadesum1", &err);
     check(err);
     cl_mem rects_buffer = clCreateBuffer(
         x_context,
@@ -724,6 +735,7 @@ check(err);*/
         x_context,
         CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
         (sum_header[0] * 3 + 1) * sizeof(int), sum_header, &err);
+    //cout << "err: " << err << endl;
     check(err);
     delete[] sum_header;
     cl_mem result_buffer = clCreateBuffer(
@@ -732,9 +744,27 @@ check(err);*/
         num_rects * sizeof(bool), result_list, &err);
     check(err);
     cl_mem actual_buf = clCreateBuffer(
-	x_context,
-	CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-	sizeof(int), &num_rects, &err);
+        x_context,
+        CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+        sizeof(int), &num_rects, &err);
+    check(err);
+    cl_mem ids_buf = clCreateBuffer(
+        x_context,
+        CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+        num_rects * sizeof(int), &actual_ids, &err);
+    check(err);
+    start_stage = kFirstKernelStart;
+    cl_mem start_stage_buf = clCreateBuffer(
+        x_context,
+        CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+        sizeof(int), &start_stage, &err);
+    check(err);
+    end_stage = kSecondKernelStart;
+    cl_mem end_stage_buf = clCreateBuffer(
+        x_context,
+        CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+        sizeof(int), &end_stage, &err);
+    check(err);
 
     err = clSetKernelArg(cascadesum, 0, sizeof(cl_mem), &rects_buffer);
     err = clSetKernelArg(cascadesum, 1, sizeof(cl_mem), &vnf_buffer);
@@ -747,6 +777,9 @@ check(err);*/
     err = clSetKernelArg(cascadesum, 6, sizeof(cl_mem), &mat_header_buffer);
     err = clSetKernelArg(cascadesum, 7, sizeof(cl_mem), &result_buffer);
     err = clSetKernelArg(cascadesum, 8, sizeof(cl_mem), &actual_buf);
+    err = clSetKernelArg(cascadesum, 9, sizeof(cl_mem), &ids_buf);
+    err = clSetKernelArg(cascadesum, 10, sizeof(cl_mem), &start_stage_buf);
+    err = clSetKernelArg(cascadesum, 11, sizeof(cl_mem), &end_stage_buf);
     
     double cl_t1 = (double)cvGetTickCount() - cl_t;
     printf( "buf transfer time = %g ms\n", cl_t1/((double)cvGetTickFrequency()*1000.) );
@@ -767,9 +800,164 @@ check(err);*/
       )
     );
     check(clFinish(x_cmd_q));
-    check( clEnqueueReadBuffer(x_cmd_q, result_buffer, CL_TRUE, 0, num_rects * sizeof(bool),
+    check( clEnqueueReadBuffer(x_cmd_q, result_buffer, CL_TRUE, 0, total_rects * sizeof(bool),
         result_list, 0, NULL, NULL));
     //release CL objects
+    //clReleaseMemObject(rects_buffer);
+    //clReleaseMemObject(vnf_buffer);
+    //clReleaseMemObject(classifier_buffer);
+    //clReleaseMemObject(sum_buffer);
+    //clReleaseMemObject(mat_len_buffer);
+    //clReleaseMemObject(mat_header_buffer);
+    //clReleaseMemObject(result_buffer);
+    clReleaseMemObject(actual_buf);
+    clReleaseMemObject(ids_buf);
+    clReleaseMemObject(start_stage_buf);
+    clReleaseMemObject(end_stage_buf);
+    //clReleaseKernel(cascadesum);
+
+    cl_t = (double)cvGetTickCount() - cl_t;
+    printf( "OpenCL time = %g ms\n", cl_t/((double)cvGetTickFrequency()*1000.) );
+    //??
+    int pos_cnt = 0;
+    for (int i = 0; i < total_rects; ++i) {
+      if (result_list[i]) {
+        actual_ids[pos_cnt] = i;
+        pos_cnt++;
+//cout<<"x: "<<rects[i].x<<" y: "<<rects[i].y<<" factor: " << rects[i].factor<<endl;
+        //float factor = rects[i].factor;
+        //Size winSize(cvRound(cascade->orig_window_size.width*factor), cvRound(cascade->orig_window_size.height*factor));
+        //allCandidates.push_back(Rect(cvRound(rects[i].x*factor), cvRound(rects[i].y*factor),
+        //                        winSize.width, winSize.height));
+      }
+    }
+    for (int i = pos_cnt; i < total_rects; ++i) {
+      actual_ids[i] = -1;
+    }
+    cout << "positive result num: " << pos_cnt << endl;
+    /*
+    for (int i = 0; i<num_rects; ++i) {
+      if (actual_ids[i] != -1)
+      cout << "actual_ids[" << i << "] = " << actual_ids[i] << endl;
+    }
+    */
+    num_rects = pos_cnt;
+
+    //if (num_rects>0) {
+      //!!!Second Kernel
+      cl_t = (double)cvGetTickCount();
+
+      cl_kernel cascadesum2 = clCreateKernel(x_prog, "cascadesum1", &err);
+      check(err);
+      //cl_mem rects_buffer2 = clCreateBuffer(
+      //    x_context,
+      //    CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+      //    3 * num_rects * sizeof(int), rects_arr, &err);
+      //check(err);
+      //cl_mem vnf_buffer2 = clCreateBuffer(
+      //    x_context,
+      //    CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+      //    num_rects * sizeof(float), vnf, &err);
+      //check(err);
+      //cl_mem classifier_buffer2 = clCreateBuffer(
+      //    x_context,
+      //    CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+      //    num_scales * sizeof(NewHidHaarClassifierCascade), new_cascade_list, &err);
+      //delete[] new_cascade_list;
+      //check(err);
+      //cout << "here3" << endl;
+      //cl_mem sum_buffer2 = clCreateBuffer(
+      //    x_context,
+      //    CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+      //    sum_mat_size * sizeof(uchar), sum_mat_list, &err);
+      //check(err);
+      //delete[] sum_mat_list;
+      ////cl_mem tilted_buffer = clCreateBuffer(
+      ////    x_context,
+      ////    CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+      ////    0 * sizeof(uchar), NULL, &err);//printf("tilted size is : %d\n", tilted_mat_size);
+      ////check(err);
+      ////delete[] tilted_mat_list;
+      //cl_mem mat_len_buffer2 = clCreateBuffer(
+      //    x_context,
+      //    CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+      //    sizeof(int), &sum_mat_size, &err);
+      //check(err);
+      //cl_mem mat_header_buffer2 = clCreateBuffer(
+      //    x_context,
+      //    CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+      //    (sum_header[0] * 3 + 1) * sizeof(int), sum_header, &err);
+      //check(err);
+      //delete[] sum_header;
+      //cl_mem result_buffer2 = clCreateBuffer(
+      //    x_context,
+      //    CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR,
+      //    num_rects * sizeof(bool), result_list, &err);
+      //check(err);
+      cl_mem actual_buf2 = clCreateBuffer(
+          x_context,
+          CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+          sizeof(int), &num_rects, &err);
+      check(err);
+      cl_mem ids_buf2 = clCreateBuffer(
+          x_context,
+          CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+          num_rects * sizeof(int), &actual_ids, &err);
+      check(err);
+      start_stage = kSecondKernelStart;
+      cl_mem start_stage_buf2 = clCreateBuffer(
+          x_context,
+          CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+          sizeof(int), &start_stage, &err);
+      check(err);
+      end_stage = kThirdKernelStart;
+      cl_mem end_stage_buf2 = clCreateBuffer(
+          x_context,
+          CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+          sizeof(int), &end_stage, &err);
+      check(err);
+
+      err = clSetKernelArg(cascadesum, 0, sizeof(cl_mem), &rects_buffer);
+      err = clSetKernelArg(cascadesum, 1, sizeof(cl_mem), &vnf_buffer);
+      err = clSetKernelArg(cascadesum, 2, sizeof(cl_mem), &classifier_buffer);
+      err = clSetKernelArg(cascadesum, 3, sizeof(cl_mem), &sum_buffer);
+  //    cout << "here1\n";
+      err = clSetKernelArg(cascadesum, 4, sizeof(cl_mem), 0);
+  //    cout << "here2\n";
+      err = clSetKernelArg(cascadesum, 5, sizeof(cl_mem), &mat_len_buffer);
+      err = clSetKernelArg(cascadesum, 6, sizeof(cl_mem), &mat_header_buffer);
+      err = clSetKernelArg(cascadesum, 7, sizeof(cl_mem), &result_buffer);
+      err = clSetKernelArg(cascadesum, 8, sizeof(cl_mem), &actual_buf2);
+      err = clSetKernelArg(cascadesum, 9, sizeof(cl_mem), &ids_buf2);
+      err = clSetKernelArg(cascadesum, 10, sizeof(cl_mem), &start_stage_buf2);
+      err = clSetKernelArg(cascadesum, 11, sizeof(cl_mem), &end_stage_buf2);
+      
+      cl_t1 = (double)cvGetTickCount() - cl_t;
+      printf( "buf transfer time = %g ms\n", cl_t1/((double)cvGetTickFrequency()*1000.) );
+      const size_t global_size2[] = {num_rects+16-num_rects%16};
+      cout << "global_size2: " << num_rects+16-num_rects%16 << endl;
+      const size_t local_size2[] = {16};
+      err = clEnqueueNDRangeKernel(
+          x_cmd_q,
+          cascadesum,
+          1,
+          NULL,
+          global_size2,
+          local_size2,
+          0,
+          NULL,
+          NULL
+        );
+      check(clFinish(x_cmd_q));
+      check( clEnqueueReadBuffer(x_cmd_q, result_buffer, CL_TRUE, 0, total_rects * sizeof(bool),
+          result_list, 0, NULL, NULL));
+      //release CL objects
+      clReleaseMemObject(actual_buf2);
+      clReleaseMemObject(start_stage_buf2);
+      clReleaseMemObject(end_stage_buf2);
+      clReleaseKernel(cascadesum2);
+      //Second Kernel END
+    //}
     clReleaseMemObject(rects_buffer);
     clReleaseMemObject(vnf_buffer);
     clReleaseMemObject(classifier_buffer);
@@ -777,14 +965,14 @@ check(err);*/
     clReleaseMemObject(mat_len_buffer);
     clReleaseMemObject(mat_header_buffer);
     clReleaseMemObject(result_buffer);
-    clReleaseMemObject(actual_buf);
-    clReleaseKernel(cascadesum);
-   
+
     cl_t = (double)cvGetTickCount() - cl_t;
     printf( "OpenCL time = %g ms\n", cl_t/((double)cvGetTickFrequency()*1000.) );
     //??
-    for (int i = 0; i < num_rects; ++i) {
+    pos_cnt = 0;
+    for (int i = 0; i < total_rects; ++i) {
       if (result_list[i]) {
+        pos_cnt++;
 //cout<<"x: "<<rects[i].x<<" y: "<<rects[i].y<<" factor: " << rects[i].factor<<endl;
         float factor = rects[i].factor;
         Size winSize(cvRound(cascade->orig_window_size.width*factor), cvRound(cascade->orig_window_size.height*factor));
@@ -792,6 +980,15 @@ check(err);*/
                                 winSize.width, winSize.height));
       }
     }
+    cout << "positive result num: " << pos_cnt << endl;
+
+
+
+
+
+
+
+
 
     rectList.resize(allCandidates.size());
     if(!allCandidates.empty())
