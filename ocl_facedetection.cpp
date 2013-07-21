@@ -660,8 +660,10 @@ OCL_cvHaarDetectObjectsForROC( const CvArr* _img,
     int num_rects = rects.size();
     int total_rects = rects.size();
     int rects_arr[num_rects][3];
-    float vnf[num_rects];
-    int actual_ids[num_rects];
+    //float vnf[num_rects];
+    float *vnf = new float[num_rects];
+    //int actual_ids[num_rects];
+    int *actual_ids = new int[num_rects];
     for (int i = 0; i < rects.size(); ++i) {
       rects_arr[i][0] = rects[i].scale_num;
       rects_arr[i][1] = rects[i].y;
@@ -676,7 +678,8 @@ OCL_cvHaarDetectObjectsForROC( const CvArr* _img,
       delete new_cascades[i];
     }
   // assert(0); 
-    bool result_list[num_rects];
+    //bool result_list[num_rects];
+    bool *result_list = new bool[num_rects];
     for (int i=0; i<num_rects; i++) {
       result_list[i] = true;
     }
@@ -751,7 +754,8 @@ check(err);*/
     cl_mem ids_buf = clCreateBuffer(
         x_context,
         CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-        num_rects * sizeof(int), &actual_ids, &err);
+        num_rects * sizeof(int), actual_ids, &err);
+        //num_rects * sizeof(int), &actual_ids, &err);
     check(err);
     start_stage = kFirstKernelStart;
     cl_mem start_stage_buf = clCreateBuffer(
@@ -902,7 +906,8 @@ check(err);*/
       cl_mem ids_buf2 = clCreateBuffer(
           x_context,
           CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-          num_rects * sizeof(int), &actual_ids, &err);
+          num_rects * sizeof(int), actual_ids, &err);
+          //num_rects * sizeof(int), &actual_ids, &err);
       check(err);
       start_stage = kSecondKernelStart;
       cl_mem start_stage_buf2 = clCreateBuffer(
@@ -1006,6 +1011,10 @@ check(err);*/
         c.neighbors = !rweights.empty() ? rweights[i] : 0;
         cvSeqPush( result_seq, &c );
     }
+
+    delete [] vnf;
+    delete [] actual_ids;
+    delete [] result_list;
 
     return result_seq;
 }
