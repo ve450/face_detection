@@ -120,60 +120,142 @@ typedef struct numbers_t
 NewHidHaarClassifierCascade* convertPointerToNonPointer(
   const CvHidHaarClassifierCascade *old_cascade
 ) {
-  NewHidHaarClassifierCascade* new_cascade = new NewHidHaarClassifierCascade();
-  new_cascade->count = old_cascade->count;
-  new_cascade->isStumpBased = old_cascade->isStumpBased;
-  new_cascade->has_tilted_features = old_cascade->has_tilted_features;
-  new_cascade->is_tree = old_cascade->is_tree;
-  new_cascade->inv_window_area = old_cascade->inv_window_area;
-  new_cascade->p0[0] = old_cascade->p0_loc[0];
-  new_cascade->p0[1] = old_cascade->p0_loc[1];
-  new_cascade->p1[0] = old_cascade->p1_loc[0];
-  new_cascade->p1[1] = old_cascade->p1_loc[1];
-  new_cascade->p2[0] = old_cascade->p2_loc[0];
-  new_cascade->p2[1] = old_cascade->p2_loc[1];
-  new_cascade->p3[0] = old_cascade->p3_loc[0];
-  new_cascade->p3[1] = old_cascade->p3_loc[1];
-  
-  for (int i = 0; i < old_cascade->count; ++i) {
-    CvHidHaarStageClassifier* hid_stage_classifier = old_cascade->stage_classifier + i;
-    NewHidHaarStageClassifier new_stage_classifier;
-    new_stage_classifier.count = hid_stage_classifier->count;
-    new_stage_classifier.threshold = hid_stage_classifier->threshold;
-    new_stage_classifier.two_rects = hid_stage_classifier->two_rects;
-    for (int j = 0; j < hid_stage_classifier->count; ++j) {
-      CvHidHaarClassifier* hid_classifier = hid_stage_classifier->classifier + j;
-      NewHidHaarClassifier new_classifier;
-      new_classifier.alpha[0] = hid_classifier->alpha[0];
-      new_classifier.alpha[1] = hid_classifier->alpha[1];
+	NewHidHaarClassifierCascade* new_cascade = new NewHidHaarClassifierCascade();
+	new_cascade->count = old_cascade->count;
+	new_cascade->isStumpBased = old_cascade->isStumpBased;
+	new_cascade->has_tilted_features = old_cascade->has_tilted_features;
+	new_cascade->is_tree = old_cascade->is_tree;
+	new_cascade->inv_window_area = old_cascade->inv_window_area;
+	new_cascade->p0[0] = old_cascade->p0_loc[0];
+	new_cascade->p0[1] = old_cascade->p0_loc[1];
+	new_cascade->p1[0] = old_cascade->p1_loc[0];
+	new_cascade->p1[1] = old_cascade->p1_loc[1];
+	new_cascade->p2[0] = old_cascade->p2_loc[0];
+	new_cascade->p2[1] = old_cascade->p2_loc[1];
+	new_cascade->p3[0] = old_cascade->p3_loc[0];
+	new_cascade->p3[1] = old_cascade->p3_loc[1];
 
-      // node
-      CvHidHaarTreeNode* node = hid_classifier->node;
-      NewHidHaarTreeNode new_node;
-      new_node.threshold = node->threshold;
+	for (int i = 0; i < old_cascade->count; ++i) {
+		CvHidHaarStageClassifier* hid_stage_classifier = old_cascade->stage_classifier + i;
+		NewHidHaarStageClassifier new_stage_classifier;
+		new_stage_classifier.count = hid_stage_classifier->count;
+		new_stage_classifier.threshold = hid_stage_classifier->threshold;
+		if(hid_stage_classifier->two_rects) {
+			new_stage_classifier.two_rects = hid_stage_classifier->count;
+			for (int j = 0; j < hid_stage_classifier->count; ++j) {
+				CvHidHaarClassifier* hid_classifier = hid_stage_classifier->classifier + j;
+				NewHidHaarClassifier new_classifier;
+				new_classifier.alpha[0] = hid_classifier->alpha[0];
+				new_classifier.alpha[1] = hid_classifier->alpha[1];
 
-      // feature
-      CvHidHaarFeature hid_feature = node->feature;
-      NewHidHaarFeature new_feature;
-      new_feature.tilted = hid_feature.tilted;
-      for (int k = 0; k < CV_HAAR_FEATURE_MAX; ++k) {
-        new_feature.rect[k].p0[0] = hid_feature.rect[k].p0_loc[0];
-        new_feature.rect[k].p0[1] = hid_feature.rect[k].p0_loc[1];
-        new_feature.rect[k].p1[0] = hid_feature.rect[k].p1_loc[0];
-        new_feature.rect[k].p1[1] = hid_feature.rect[k].p1_loc[1];
-        new_feature.rect[k].p2[0] = hid_feature.rect[k].p2_loc[0];
-        new_feature.rect[k].p2[1] = hid_feature.rect[k].p2_loc[1];
-        new_feature.rect[k].p3[0] = hid_feature.rect[k].p3_loc[0];
-        new_feature.rect[k].p3[1] = hid_feature.rect[k].p3_loc[1];
-        new_feature.rect[k].weight = hid_feature.rect[k].weight;
-      }
-      new_node.feature = new_feature;
-      new_classifier.node = new_node;
-      new_stage_classifier.classifier[j] = new_classifier;
-    }
-    new_cascade->stage_classifier[i] = new_stage_classifier;
-  }
-  return new_cascade;
+				// node
+				CvHidHaarTreeNode* node = hid_classifier->node;
+				NewHidHaarTreeNode new_node;
+				new_node.threshold = node->threshold;
+
+				// feature
+				CvHidHaarFeature hid_feature = node->feature;
+				NewHidHaarFeature new_feature;
+				new_feature.tilted = hid_feature.tilted;
+				for (int k = 0; k < CV_HAAR_FEATURE_MAX; ++k) {
+					new_feature.rect[k].p0[0] = hid_feature.rect[k].p0_loc[0];
+					new_feature.rect[k].p0[1] = hid_feature.rect[k].p0_loc[1];
+					new_feature.rect[k].p1[0] = hid_feature.rect[k].p1_loc[0];
+					new_feature.rect[k].p1[1] = hid_feature.rect[k].p1_loc[1];
+					new_feature.rect[k].p2[0] = hid_feature.rect[k].p2_loc[0];
+					new_feature.rect[k].p2[1] = hid_feature.rect[k].p2_loc[1];
+					new_feature.rect[k].p3[0] = hid_feature.rect[k].p3_loc[0];
+					new_feature.rect[k].p3[1] = hid_feature.rect[k].p3_loc[1];
+					new_feature.rect[k].weight = hid_feature.rect[k].weight;
+				}
+				new_node.feature = new_feature;
+				new_classifier.node = new_node;
+				new_stage_classifier.classifier[j] = new_classifier;
+			}
+		} else {
+			int tri_cnt = 0;
+			for (int j = 0; j < hid_stage_classifier->count; ++j) {
+				CvHidHaarClassifier* hid_classifier = hid_stage_classifier->classifier + j;
+				CvHidHaarTreeNode* node = hid_classifier->node;
+				CvHidHaarFeature hid_feature = node->feature;
+				if(hid_feature.rect[2].weight != 0) tri_cnt++;
+			}
+			new_stage_classifier.two_rects = hid_stage_classifier->count - tri_cnt;
+			int m = 0;
+			for (int j = 0; j < hid_stage_classifier->count; ++j) {
+				CvHidHaarClassifier* hid_classifier = hid_stage_classifier->classifier + j;
+				CvHidHaarTreeNode* node = hid_classifier->node;
+				CvHidHaarFeature hid_feature = node->feature;
+				if(hid_feature.rect[2].weight == 0) {
+					CvHidHaarClassifier* hid_classifier = hid_stage_classifier->classifier + j;
+					NewHidHaarClassifier new_classifier;
+					new_classifier.alpha[0] = hid_classifier->alpha[0];
+					new_classifier.alpha[1] = hid_classifier->alpha[1];
+
+					// node
+					CvHidHaarTreeNode* node = hid_classifier->node;
+					NewHidHaarTreeNode new_node;
+					new_node.threshold = node->threshold;
+
+					// feature
+					CvHidHaarFeature hid_feature = node->feature;
+					NewHidHaarFeature new_feature;
+					new_feature.tilted = hid_feature.tilted;
+					for (int k = 0; k < CV_HAAR_FEATURE_MAX; ++k) {
+						new_feature.rect[k].p0[0] = hid_feature.rect[k].p0_loc[0];
+						new_feature.rect[k].p0[1] = hid_feature.rect[k].p0_loc[1];
+						new_feature.rect[k].p1[0] = hid_feature.rect[k].p1_loc[0];
+						new_feature.rect[k].p1[1] = hid_feature.rect[k].p1_loc[1];
+						new_feature.rect[k].p2[0] = hid_feature.rect[k].p2_loc[0];
+						new_feature.rect[k].p2[1] = hid_feature.rect[k].p2_loc[1];
+						new_feature.rect[k].p3[0] = hid_feature.rect[k].p3_loc[0];
+						new_feature.rect[k].p3[1] = hid_feature.rect[k].p3_loc[1];
+						new_feature.rect[k].weight = hid_feature.rect[k].weight;
+					}
+					new_node.feature = new_feature;
+					new_classifier.node = new_node;
+					new_stage_classifier.classifier[m++] = new_classifier;
+				}
+			}
+			for (int j = 0; j < hid_stage_classifier->count; ++j) {
+				CvHidHaarClassifier* hid_classifier = hid_stage_classifier->classifier + j;
+				CvHidHaarTreeNode* node = hid_classifier->node;
+				CvHidHaarFeature hid_feature = node->feature;
+				if(hid_feature.rect[2].weight != 0) {
+					CvHidHaarClassifier* hid_classifier = hid_stage_classifier->classifier + j;
+					NewHidHaarClassifier new_classifier;
+					new_classifier.alpha[0] = hid_classifier->alpha[0];
+					new_classifier.alpha[1] = hid_classifier->alpha[1];
+
+					// node
+					CvHidHaarTreeNode* node = hid_classifier->node;
+					NewHidHaarTreeNode new_node;
+					new_node.threshold = node->threshold;
+
+					// feature
+					CvHidHaarFeature hid_feature = node->feature;
+					NewHidHaarFeature new_feature;
+					new_feature.tilted = hid_feature.tilted;
+					for (int k = 0; k < CV_HAAR_FEATURE_MAX; ++k) {
+						new_feature.rect[k].p0[0] = hid_feature.rect[k].p0_loc[0];
+						new_feature.rect[k].p0[1] = hid_feature.rect[k].p0_loc[1];
+						new_feature.rect[k].p1[0] = hid_feature.rect[k].p1_loc[0];
+						new_feature.rect[k].p1[1] = hid_feature.rect[k].p1_loc[1];
+						new_feature.rect[k].p2[0] = hid_feature.rect[k].p2_loc[0];
+						new_feature.rect[k].p2[1] = hid_feature.rect[k].p2_loc[1];
+						new_feature.rect[k].p3[0] = hid_feature.rect[k].p3_loc[0];
+						new_feature.rect[k].p3[1] = hid_feature.rect[k].p3_loc[1];
+						new_feature.rect[k].weight = hid_feature.rect[k].weight;
+					}
+					new_node.feature = new_feature;
+					new_classifier.node = new_node;
+					new_stage_classifier.classifier[m++] = new_classifier;
+				}
+			}
+		}
+		new_cascade->stage_classifier[i] = new_stage_classifier;
+	}
+	return new_cascade;
 }
 
 char* loadProgramSource(const char* filename, size_t &length) {
@@ -662,7 +744,6 @@ OCL_cvHaarDetectObjectsForROC( const CvArr* _img,
       rects_arr[i][1] = rects[i].y;
       rects_arr[i][2] = rects[i].x;
       vnf[i] = rects[i].variance_norm_factor;
-//if((rects[i].scale_num==3)&&(rects[i].x==34)&&(rects[i].y==63)) cout<<"tag "<<i<<endl;//assert(0);
     }//assert(0);
     NewHidHaarClassifierCascade* new_cascade_list = new NewHidHaarClassifierCascade[num_scales];
     for (int i = 0; i < num_scales; ++i) {
@@ -671,6 +752,7 @@ OCL_cvHaarDetectObjectsForROC( const CvArr* _img,
     }
   // assert(0); 
     bool result_list[num_rects];
+   for(int i = 0; i <num_rects; i++) result_list[i]=0;
     int sum_mat_size, tilted_mat_size;
     int *sum_header, *tilted_mat_header;
     uchar* sum_mat_list = encodeMatrix(sum_mat_size, sum_header, sums);
@@ -750,7 +832,7 @@ check(err);*/
     
     double cl_t1 = (double)cvGetTickCount() - cl_t;
     printf( "buf transfer time = %g ms\n", cl_t1/((double)cvGetTickFrequency()*1000.) );
-    const size_t global_size[] = {num_rects+16-num_rects%16};
+    size_t global_size[] = {num_rects+16-num_rects%16};
     cout << "global_size: " << num_rects+16-num_rects%16 << endl;
     const size_t local_size[] = {16};
     check(
@@ -766,9 +848,67 @@ check(err);*/
         NULL
       )
     );
-    check(clFinish(x_cmd_q));
+//    check(clFinish(x_cmd_q));
+
     check( clEnqueueReadBuffer(x_cmd_q, result_buffer, CL_TRUE, 0, num_rects * sizeof(bool),
         result_list, 0, NULL, NULL));
+    double cl_t2 = (double)cvGetTickCount() - cl_t;
+    printf( "2:OpenCL time = %g ms\n", cl_t2/((double)cvGetTickFrequency()*1000.) );
+//reduced_kernel
+    int* sur_cnt = new int(0); 
+    for( int i = 0; i < num_rects; i++) 
+    {
+	if(result_list[i]) (*sur_cnt) ++;
+    }
+  if(*sur_cnt > 0) {
+    int * mapper = new int[*sur_cnt];
+    for(int i = 0,j = 0; i < num_rects; i++)
+    {
+	if(result_list[i]) mapper[j++] = i;
+    }
+    cl_kernel cascadesum_reduced = clCreateKernel(x_prog, "cascadesum_reduced", &err);
+    check(err);
+    actual_buf = clCreateBuffer(
+	x_context,
+	CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+	sizeof(int), sur_cnt, &err);
+    cl_mem mapper_buf = clCreateBuffer(
+	x_context,
+	CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
+	sizeof(int)*(*sur_cnt), mapper, &err);
+    err = clSetKernelArg(cascadesum_reduced, 0, sizeof(cl_mem), &rects_buffer);
+    err = clSetKernelArg(cascadesum_reduced, 1, sizeof(cl_mem), &vnf_buffer);
+    err = clSetKernelArg(cascadesum_reduced, 2, sizeof(cl_mem), &classifier_buffer);
+    err = clSetKernelArg(cascadesum_reduced, 3, sizeof(cl_mem), &sum_buffer);
+//    cout << "here1\n";
+    err = clSetKernelArg(cascadesum_reduced, 4, sizeof(cl_mem), 0);
+//    cout << "here2\n";
+    err = clSetKernelArg(cascadesum_reduced, 5, sizeof(cl_mem), &mat_len_buffer);
+    err = clSetKernelArg(cascadesum_reduced, 6, sizeof(cl_mem), &mat_header_buffer);
+    err = clSetKernelArg(cascadesum_reduced, 7, sizeof(cl_mem), &result_buffer);
+    err = clSetKernelArg(cascadesum_reduced, 8, sizeof(cl_mem), &actual_buf);
+check(err);
+    err = clSetKernelArg(cascadesum_reduced, 9, sizeof(cl_mem), &mapper_buf);
+check(err);
+    size_t global_size2[] = {*sur_cnt+16-*sur_cnt%16};
+    cout << "global_size: " << *global_size2 << endl;
+    cout << "sur_cnt: " << *sur_cnt << endl;
+    check(
+      clEnqueueNDRangeKernel(
+        x_cmd_q,
+        cascadesum_reduced,
+        1,
+        NULL,
+        global_size2,
+        local_size,
+        0,
+        NULL,
+        NULL
+      ));
+    
+    check( clEnqueueReadBuffer(x_cmd_q, result_buffer, CL_TRUE, 0, num_rects * sizeof(bool),
+        result_list, 0, NULL, NULL));
+}else {cout<<"all dead: "<<*sur_cnt<<endl;}
     //release CL objects
     clReleaseMemObject(rects_buffer);
     clReleaseMemObject(vnf_buffer);
