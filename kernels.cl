@@ -104,8 +104,8 @@ __kernel void cascadesum(__global int *rects, __global float *vnf,
   if(id >= *actual_rects) return;
   float variance_norm_factor = vnf[id];
   int scale_num = rects[id * 3];
-  int y = rects[id * 3 + 1];
-  int x = rects[id * 3 + 2];
+  int y = rects[id * 4 + 1];
+  int x = rects[id * 4 + 2];
   __global CvHidHaarClassifierCascade* cascade = &classifiers[scale_num];
   int col = mat_header[1 + scale_num * 3];
   int row = mat_header[1 + scale_num * 3 + 1];
@@ -117,12 +117,7 @@ __kernel void cascadesum(__global int *rects, __global float *vnf,
   int start_stage = 0;
   int p_offset;
   int i, j;
-  int mat_list_offset = 0;
-  for (i = 0; i < scale_num; ++i) {
-      int col_tmp = mat_header[1 + i * 3];
-      int row_tmp = mat_header[1 + i * 3 + 1];
-      mat_list_offset += col_tmp * row_tmp;
-  }
+  int mat_list_offset = mat_header[1 + scale_num * 3 + 2];
   //official start
   p_offset = y * (col * sizeof(int) /sizeof(sumtype)) + x;
 
@@ -202,24 +197,18 @@ __kernel void cascadesum1(__global int *rects, __global float *vnf,
   int y = rects[id * 3 + 1];
   int x = rects[id * 3 + 2];
   __global CvHidHaarClassifierCascade* cascade = &classifiers[scale_num];
-  int col = mat_header[1 + scale_num * 3];
-  int row = mat_header[1 + scale_num * 3 + 1];
+  int3 scale_info = (int3)(mat_header[1 + scale_num *3], mat_header[1 + scale_num * 3 + 1], mat_header[1 + scale_num * 3 + 2]);
+  int col = scale_info.s0;
+  int row = scale_info.s1;
+  int mat_list_offset = scale_info.s2 / sizeof(int);
   int* sum_list_int = (int*)sum_list;
   int* tilted_list_int = (int*)tilted_list;
-
   bool isStumpBased = true;
   float stage_sum;
   int start_stage = *_start_stage;
   int end_stage = *_end_stage;
-  //int end_stage = cascade->count;
   int p_offset;
   int i, j;
-  int mat_list_offset = 0;
-  for (i = 0; i < scale_num; ++i) {
-      int col_tmp = mat_header[1 + i * 3];
-      int row_tmp = mat_header[1 + i * 3 + 1];
-      mat_list_offset += col_tmp * row_tmp;
-  }
   //official start
   p_offset = y * (col * sizeof(int) /sizeof(sumtype)) + x;
 
