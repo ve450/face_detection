@@ -46,7 +46,7 @@ cl_uint work_dim = 1;
 const float kScaleFactor = 1.3f;
 const int kFirstKernelStart = 0;
 const int kSecondKernelStart = 3;
-const int kThirdKernelStart = 20;
+const int kThirdKernelStart = 22;
 
 //cl parameters
 cl_platform_id 		x_platform;
@@ -685,14 +685,12 @@ OCL_cvHaarDetectObjectsForROC( const CvArr* _img,
     }
     int sum_mat_size, tilted_mat_size;
     int *sum_header, *tilted_mat_header;
-    int start_stage;
-    int end_stage;
     uchar* sum_mat_list = encodeMatrix(sum_mat_size, sum_header, sums);
     uchar* tilted_mat_list = encodeMatrix(tilted_mat_size, tilted_mat_header, tilteds);
     delete[] tilted_mat_header;
     for ( int k = 0; k < sums.size(); k++) {
-	if( tilteds.size() > 0) delete tilteds[k];
-   	delete sums[k];
+      if( tilteds.size() > 0) delete tilteds[k];
+        delete sums[k];
     }
     //cli
 
@@ -757,6 +755,8 @@ check(err);*/
         num_rects * sizeof(int), actual_ids, &err);
         //num_rects * sizeof(int), &actual_ids, &err);
     check(err);
+    int start_stage;
+    int end_stage;
     start_stage = kFirstKernelStart;
     cl_mem start_stage_buf = clCreateBuffer(
         x_context,
@@ -847,7 +847,7 @@ check(err);*/
     */
     num_rects = pos_cnt;
 
-    //if (num_rects>0) {
+    if (num_rects>0) {
       //!!!Second Kernel
       cl_t = (double)cvGetTickCount();
 
@@ -962,7 +962,7 @@ check(err);*/
       clReleaseMemObject(end_stage_buf2);
       clReleaseKernel(cascadesum2);
       //Second Kernel END
-    //}
+    }
     clReleaseMemObject(rects_buffer);
     clReleaseMemObject(vnf_buffer);
     clReleaseMemObject(classifier_buffer);

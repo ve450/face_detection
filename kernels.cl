@@ -140,8 +140,11 @@ __kernel void cascadesum(__global int *rects, __global float *vnf,
                     mat = &tilted_list_int[mat_list_offset];
                   else
                     mat = &sum_list_int[mat_list_offset];
+                  /*
                   float sum = (float)calc_sum(node.feature.rect[0],col,p_offset,mat) * node.feature.rect[0].weight;
                   sum += calc_sum(node.feature.rect[1],col,p_offset,mat) * node.feature.rect[1].weight;
+                  */
+                  float sum = 1.0f;
                   stage_sum += classifier->alpha[sum >= t];
                   /* no effect on performance
                   if( stage_sum > cascade->stage_classifier[i].threshold )
@@ -230,17 +233,21 @@ __kernel void cascadesum1(__global int *rects, __global float *vnf,
                   CvHidHaarTreeNode node = classifier->node;
                   float t = node.threshold*variance_norm_factor; //true threshold
                   int* mat;
+                  /*
                   if (node.feature.tilted)
                     mat = &tilted_list_int[mat_list_offset];
                   else
+                  */
                     mat = &sum_list_int[mat_list_offset];
                   float sum = (float)calc_sum(node.feature.rect[0],col,p_offset,mat) * node.feature.rect[0].weight;
                   sum += calc_sum(node.feature.rect[1],col,p_offset,mat) * node.feature.rect[1].weight;
+                  //float sum = 1.0f;
+                  //if( node.feature.rect[2].p0 )
+                  //    sum += calc_sum(node.feature.rect[2],col,p_offset,mat) * node.feature.rect[2].weight;
                   stage_sum += classifier->alpha[sum >= t];
-                  /* no effect on performance
+                  // no effect on performance
                   if( stage_sum > cascade->stage_classifier[i].threshold )
-                    continue;
-                  */
+                    break;
               }
           //} else {
           //    for( j = 0; j < cascade->stage_classifier[i].count; j++ ) {
