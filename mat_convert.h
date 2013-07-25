@@ -53,14 +53,14 @@ uchar* encodeMatrix (int &size, int* &header, vector<Mat*> mats)
 		totalSize += mats[i]->cols * mats[i]->rows * mats[i]->elemSize(); 
 		header[1 + i * 3] = mats[i]->cols; //record size in col
 		header[1 + i * 3 + 1] = mats[i]->rows;//record size in row
-		header[1 + i * 3 + 2] = mats[i]->type();//record elem_type
 	}
 	size = totalSize;
 	uchar* result = new uchar[totalSize];
 	memset ( result , 0, totalSize);
 	int offset = 0;
 	for ( int i = 0; i < mats.size(); i++)
- 	{//printf("address is %ld\n", (unsigned long int)mats[i]->data);
+ 	{
+		header[1 + i * 3 + 2] = offset;
 		memcpy ( result + offset, mats[i]->data, mats[i]->cols * mats[i]->rows * mats[i]->elemSize());
 		offset += mats[i]->cols * mats[i]->rows * mats[i]->elemSize();
 	}
@@ -96,40 +96,3 @@ double** decodeMatrixForDouble(int* header, uchar *data)
 	}
 	return result;
 }		
-/*
-void decodeMatrix (int &size, string &header, int n, uchar *content) 
-{
-	//va_list Mats;
-	//Mat** MatsPtr = new Mat*[n];
-	//va_start ( Mats, n);
-	//int totalSize = 0;
-  int i=0;
-  int cols[n], rows[n], type[n];
-  std::size_t found = header.find_first_of("/");
-  while (found!=std::string::npos)
-  {
-    //int cols, rows, type;
-		sscanf (header.substr(0,found).c_str(), "%d-%d-%d", 
-            &(cols[i]), &(rows[i]), &(type[i]));
-    i++;
-    if (i>=n) break;
-    //printf("%s\n", header.substr(0, found).c_str());
-    //printf("%d,%d,%d\n", cols,rows,type);
-    header.erase(0, found+1);
-    found=header.find_first_of("/");
-  }
- 
-	int offset = 0;
-	for ( int i = 0; i < n; i++)
-	{
-    int elemSize = //based on type[i]
-		int matSize= cols[i] * rows[i] * elemSize; 
-    uchar buf[matSize];
-	  memset ( buf , 0, matSize);
-		memcpy ( buf, content + offset, matSize);
-		offset += matSize;
-	}
-  
-}*/
-
-
