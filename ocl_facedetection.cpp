@@ -45,7 +45,7 @@ cl_int err;
 cl_uint work_dim = 1;
 const float kScaleFactor = 1.3f;
 const int kFirstKernelStart = 0;
-const int kSecondKernelStart = 1;
+const int kSecondKernelStart = 3;
 const int kThirdKernelStart = 20;
 
 //cl parameters
