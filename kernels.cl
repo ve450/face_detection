@@ -278,7 +278,7 @@ __kernel void cascadesum1(__global int *rects, __global float *vnf,
                          __global uchar *sum_list, __global uchar *tilted_list,
                          int mat_len, __global int *mat_header,
                          __global bool *result, __global int *actual_rects,
-                         __global int *actual_ids, __global int *_start_stage, __global int *_end_stage) {
+                         __global int *actual_ids, int start_stage, int end_stage) {
   const int global_id = get_global_id(0);
   if(global_id >= *actual_rects) return;
   const int id = actual_ids[global_id];
@@ -294,17 +294,9 @@ __kernel void cascadesum1(__global int *rects, __global float *vnf,
 
   bool isStumpBased = true;
   float stage_sum;
-  int start_stage = *_start_stage;
-  int end_stage = *_end_stage;
-  //int end_stage = cascade->count;
   int p_offset;
   int i, j;
   int mat_list_offset = 0;
-  //for (i = 0; i < scale_num; ++i) {
-  //    int col_tmp = mat_header[1 + i * 3];
-  //    int row_tmp = mat_header[1 + i * 3 + 1];
-  //    mat_list_offset += col_tmp * row_tmp;
-  //}
   mat_list_offset = mat_header[1 + scale_num * 3 + 2]/4;
   //official start
   p_offset = y * (col * sizeof(int) /sizeof(sumtype)) + x;

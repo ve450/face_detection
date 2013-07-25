@@ -216,8 +216,8 @@ void setupCL() {
 	char *source = loadProgramSource(PROG_SOURCE, prog_length);
 	x_prog = clCreateProgramWithSource(x_context, 1, (const char**)&source, &prog_length, &err);
 	free(source);
-
 	check(err);
+
 	err = clBuildProgram(x_prog, 1, &x_device, NULL,NULL,NULL);
 	//log
 	if(err == CL_BUILD_PROGRAM_FAILURE) {
@@ -727,11 +727,6 @@ OCL_cvHaarDetectObjectsForROC( const CvArr* _img,
         0 * sizeof(uchar), NULL, &err);//printf("tilted size is : %d\n", tilted_mat_size);
 check(err);*/
     delete[] tilted_mat_list;
-    cl_mem mat_len_buffer = clCreateBuffer(
-        x_context,
-        CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-        sizeof(int), &sum_mat_size, &err);
-    check(err);
     cl_mem mat_header_buffer = clCreateBuffer(
         x_context,
         CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
@@ -757,18 +752,6 @@ check(err);*/
     check(err);
     int start_stage;
     int end_stage;
-    start_stage = kFirstKernelStart;
-    cl_mem start_stage_buf = clCreateBuffer(
-        x_context,
-        CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-        sizeof(int), &start_stage, &err);
-    check(err);
-    end_stage = kSecondKernelStart;
-    cl_mem end_stage_buf = clCreateBuffer(
-        x_context,
-        CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-        sizeof(int), &end_stage, &err);
-    check(err);
 
     err = clSetKernelArg(cascadesum, 0, sizeof(cl_mem), &rects_buffer);
     err = clSetKernelArg(cascadesum, 1, sizeof(cl_mem), &vnf_buffer);
@@ -777,13 +760,15 @@ check(err);*/
 //    cout << "here1\n";
     err = clSetKernelArg(cascadesum, 4, sizeof(cl_mem), 0);
 //    cout << "here2\n";
-    err = clSetKernelArg(cascadesum, 5, sizeof(cl_mem), &mat_len_buffer);
+    err = clSetKernelArg(cascadesum, 5, sizeof(int), &sum_mat_size);
     err = clSetKernelArg(cascadesum, 6, sizeof(cl_mem), &mat_header_buffer);
     err = clSetKernelArg(cascadesum, 7, sizeof(cl_mem), &result_buffer);
     err = clSetKernelArg(cascadesum, 8, sizeof(cl_mem), &actual_buf);
     err = clSetKernelArg(cascadesum, 9, sizeof(cl_mem), &ids_buf);
-    err = clSetKernelArg(cascadesum, 10, sizeof(cl_mem), &start_stage_buf);
-    err = clSetKernelArg(cascadesum, 11, sizeof(cl_mem), &end_stage_buf);
+    start_stage = kFirstKernelStart;
+    err = clSetKernelArg(cascadesum, 10, sizeof(int), &start_stage);
+    end_stage = kSecondKernelStart;
+    err = clSetKernelArg(cascadesum, 11, sizeof(int), &end_stage);
     
     double cl_t1 = (double)cvGetTickCount() - cl_t;
     printf( "buf transfer time = %g ms\n", cl_t1/((double)cvGetTickFrequency()*1000.) );
@@ -816,8 +801,8 @@ check(err);*/
     //clReleaseMemObject(result_buffer);
     clReleaseMemObject(actual_buf);
     clReleaseMemObject(ids_buf);
-    clReleaseMemObject(start_stage_buf);
-    clReleaseMemObject(end_stage_buf);
+    //clReleaseMemObject(start_stage_buf);
+    //clReleaseMemObject(end_stage_buf);
     //clReleaseKernel(cascadesum);
 
     cl_t = (double)cvGetTickCount() - cl_t;
@@ -853,51 +838,6 @@ check(err);*/
 
       cl_kernel cascadesum2 = clCreateKernel(x_prog, "cascadesum1", &err);
       check(err);
-      //cl_mem rects_buffer2 = clCreateBuffer(
-      //    x_context,
-      //    CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-      //    3 * num_rects * sizeof(int), rects_arr, &err);
-      //check(err);
-      //cl_mem vnf_buffer2 = clCreateBuffer(
-      //    x_context,
-      //    CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-      //    num_rects * sizeof(float), vnf, &err);
-      //check(err);
-      //cl_mem classifier_buffer2 = clCreateBuffer(
-      //    x_context,
-      //    CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-      //    num_scales * sizeof(NewHidHaarClassifierCascade), new_cascade_list, &err);
-      //delete[] new_cascade_list;
-      //check(err);
-      //cout << "here3" << endl;
-      //cl_mem sum_buffer2 = clCreateBuffer(
-      //    x_context,
-      //    CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-      //    sum_mat_size * sizeof(uchar), sum_mat_list, &err);
-      //check(err);
-      //delete[] sum_mat_list;
-      ////cl_mem tilted_buffer = clCreateBuffer(
-      ////    x_context,
-      ////    CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-      ////    0 * sizeof(uchar), NULL, &err);//printf("tilted size is : %d\n", tilted_mat_size);
-      ////check(err);
-      ////delete[] tilted_mat_list;
-      //cl_mem mat_len_buffer2 = clCreateBuffer(
-      //    x_context,
-      //    CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-      //    sizeof(int), &sum_mat_size, &err);
-      //check(err);
-      //cl_mem mat_header_buffer2 = clCreateBuffer(
-      //    x_context,
-      //    CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-      //    (sum_header[0] * 3 + 1) * sizeof(int), sum_header, &err);
-      //check(err);
-      //delete[] sum_header;
-      //cl_mem result_buffer2 = clCreateBuffer(
-      //    x_context,
-      //    CL_MEM_READ_WRITE | CL_MEM_COPY_HOST_PTR,
-      //    num_rects * sizeof(bool), result_list, &err);
-      //check(err);
       cl_mem actual_buf2 = clCreateBuffer(
           x_context,
           CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
@@ -909,18 +849,6 @@ check(err);*/
           num_rects * sizeof(int), actual_ids, &err);
           //num_rects * sizeof(int), &actual_ids, &err);
       check(err);
-      start_stage = kSecondKernelStart;
-      cl_mem start_stage_buf2 = clCreateBuffer(
-          x_context,
-          CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-          sizeof(int), &start_stage, &err);
-      check(err);
-      end_stage = kThirdKernelStart;
-      cl_mem end_stage_buf2 = clCreateBuffer(
-          x_context,
-          CL_MEM_READ_ONLY | CL_MEM_COPY_HOST_PTR,
-          sizeof(int), &end_stage, &err);
-      check(err);
 
       err = clSetKernelArg(cascadesum, 0, sizeof(cl_mem), &rects_buffer);
       err = clSetKernelArg(cascadesum, 1, sizeof(cl_mem), &vnf_buffer);
@@ -929,13 +857,15 @@ check(err);*/
   //    cout << "here1\n";
       err = clSetKernelArg(cascadesum, 4, sizeof(cl_mem), 0);
   //    cout << "here2\n";
-      err = clSetKernelArg(cascadesum, 5, sizeof(cl_mem), &mat_len_buffer);
+      err = clSetKernelArg(cascadesum, 5, sizeof(int), &sum_mat_size);
       err = clSetKernelArg(cascadesum, 6, sizeof(cl_mem), &mat_header_buffer);
       err = clSetKernelArg(cascadesum, 7, sizeof(cl_mem), &result_buffer);
       err = clSetKernelArg(cascadesum, 8, sizeof(cl_mem), &actual_buf2);
       err = clSetKernelArg(cascadesum, 9, sizeof(cl_mem), &ids_buf2);
-      err = clSetKernelArg(cascadesum, 10, sizeof(cl_mem), &start_stage_buf2);
-      err = clSetKernelArg(cascadesum, 11, sizeof(cl_mem), &end_stage_buf2);
+      start_stage = kSecondKernelStart;
+      err = clSetKernelArg(cascadesum, 10, sizeof(int), &start_stage);
+      end_stage = kThirdKernelStart;
+      err = clSetKernelArg(cascadesum, 11, sizeof(int), &end_stage);
       
       cl_t1 = (double)cvGetTickCount() - cl_t;
       printf( "buf transfer time = %g ms\n", cl_t1/((double)cvGetTickFrequency()*1000.) );
@@ -958,8 +888,8 @@ check(err);*/
           result_list, 0, NULL, NULL));
       //release CL objects
       clReleaseMemObject(actual_buf2);
-      clReleaseMemObject(start_stage_buf2);
-      clReleaseMemObject(end_stage_buf2);
+      //clReleaseMemObject(start_stage_buf2);
+      //clReleaseMemObject(end_stage_buf2);
       clReleaseKernel(cascadesum2);
       //Second Kernel END
     }
@@ -967,7 +897,7 @@ check(err);*/
     clReleaseMemObject(vnf_buffer);
     clReleaseMemObject(classifier_buffer);
     clReleaseMemObject(sum_buffer);
-    clReleaseMemObject(mat_len_buffer);
+    //clReleaseMemObject(mat_len_buffer);
     clReleaseMemObject(mat_header_buffer);
     clReleaseMemObject(result_buffer);
 
