@@ -39,26 +39,6 @@ static void help()
             "\tUsing OpenCV version " << CV_VERSION << "\n" << endl;
 }
 
-const char *PROG_SOURCE = "kernels.cl";
-cl_int err;
-
-cl_uint work_dim = 1;
-const float kScaleFactor = 1.3f;
-const int kFirstKernelStart = 0;
-const int kSecondKernelStart = 3;
-const int kThirdKernelStart = 22;
-
-//cl parameters
-cl_platform_id 		x_platform;
-cl_device_id 		x_device;
-cl_context 		x_context;
-cl_command_queue 	x_cmd_q;
-cl_program 		x_prog;
-size_t 			prog_length;
-
-#define check(err) assert(err == CL_SUCCESS)
-typedef unsigned int uint;
-
 typedef struct NewHidHaarFeature
 {
     int tilted;
@@ -119,6 +99,27 @@ typedef struct numbers_t
   int x;
   float variance_norm_factor;
 } numbers_t;
+
+const char *PROG_SOURCE = "kernels.cl";
+cl_int err;
+
+cl_uint work_dim = 1;
+const float kScaleFactor = 1.3f;
+const int kFirstKernelStart = 0;
+const int kSecondKernelStart = 3;
+const int kThirdKernelStart = 22;
+//vector<NewHidHaarClassifierCascade*> new_cascades;
+
+//cl parameters
+cl_platform_id 		x_platform;
+cl_device_id 		x_device;
+cl_context 		x_context;
+cl_command_queue 	x_cmd_q;
+cl_program 		x_prog;
+size_t 			prog_length;
+
+#define check(err) assert(err == CL_SUCCESS)
+typedef unsigned int uint;
 
 NewHidHaarClassifierCascade* convertPointerToNonPointer(
   const CvHidHaarClassifierCascade *old_cascade
@@ -562,6 +563,7 @@ OCL_cvHaarDetectObjectsForROC( const CvArr* _img,
     imgSmall = cvCreateMat( img->rows + 1, img->cols + 1, CV_8UC1 );
     //different scales
     int num_scales = 0;
+    double calc_t0 = (double)cvGetTickCount();
     for(float factor = 1; ; factor *= scaleFactor )
     {
         //winSize0: original window size in xml
@@ -605,6 +607,7 @@ OCL_cvHaarDetectObjectsForROC( const CvArr* _img,
         CL_cvSetImagesForHaarClassifierCascade( cascade, &sum1, &sqsum1, _tilted, 1. );
         CvHidHaarClassifierCascade* hid_cascade = cascade->hid_cascade;
         new_cascades.push_back(convertPointerToNonPointer(hid_cascade));
+
         //cout << hid_cascade->sum.step << endl;
         Mat* tmp_mat = new Mat(&hid_cascade->sum, 1);
         sums.push_back(tmp_mat);
@@ -632,7 +635,7 @@ OCL_cvHaarDetectObjectsForROC( const CvArr* _img,
                 continue;
             
             numbers_t tmp;
-	    tmp.factor = factor;
+	          tmp.factor = factor;
             tmp.scale_num = num_scales;//cout<<"num_scales "<<num_scales<<endl;
             tmp.y = y;
             tmp.x = x;
@@ -657,6 +660,9 @@ OCL_cvHaarDetectObjectsForROC( const CvArr* _img,
         }
         num_scales++;
     }
+    double calc_t1 = (double)cvGetTickCount() - calc_t0;
+    printf( "precalc time = %g ms\n", calc_t1/((double)cvGetTickFrequency()*1000.) );
+    printf( "--------------------------------------\n");
     int num_rects = rects.size();
     int total_rects = rects.size();
     int rects_arr[num_rects][3];
@@ -763,7 +769,8 @@ check(err);*/
     err = clSetKernelArg(cascadesum, 5, sizeof(int), &sum_mat_size);
     err = clSetKernelArg(cascadesum, 6, sizeof(cl_mem), &mat_header_buffer);
     err = clSetKernelArg(cascadesum, 7, sizeof(cl_mem), &result_buffer);
-    err = clSetKernelArg(cascadesum, 8, sizeof(cl_mem), &actual_buf);
+    //err = clSetKernelArg(cascadesum, 8, sizeof(cl_mem), &actual_buf);
+    err = clSetKernelArg(cascadesum, 8, sizeof(int), &num_rects);
     err = clSetKernelArg(cascadesum, 9, sizeof(cl_mem), &ids_buf);
     start_stage = kFirstKernelStart;
     err = clSetKernelArg(cascadesum, 10, sizeof(int), &start_stage);
@@ -823,7 +830,7 @@ check(err);*/
     for (int i = pos_cnt; i < total_rects; ++i) {
       actual_ids[i] = -1;
     }
-    cout << "positive result num: " << pos_cnt << endl;
+    cout << "positive result num: " << pos_cnt << endl << endl;
     /*
     for (int i = 0; i<num_rects; ++i) {
       if (actual_ids[i] != -1)
@@ -860,7 +867,8 @@ check(err);*/
       err = clSetKernelArg(cascadesum, 5, sizeof(int), &sum_mat_size);
       err = clSetKernelArg(cascadesum, 6, sizeof(cl_mem), &mat_header_buffer);
       err = clSetKernelArg(cascadesum, 7, sizeof(cl_mem), &result_buffer);
-      err = clSetKernelArg(cascadesum, 8, sizeof(cl_mem), &actual_buf2);
+      //err = clSetKernelArg(cascadesum, 8, sizeof(cl_mem), &actual_buf2);
+      err = clSetKernelArg(cascadesum, 8, sizeof(int), &num_rects);
       err = clSetKernelArg(cascadesum, 9, sizeof(cl_mem), &ids_buf2);
       start_stage = kSecondKernelStart;
       err = clSetKernelArg(cascadesum, 10, sizeof(int), &start_stage);
@@ -887,7 +895,7 @@ check(err);*/
       check( clEnqueueReadBuffer(x_cmd_q, result_buffer, CL_TRUE, 0, total_rects * sizeof(bool),
           result_list, 0, NULL, NULL));
       //release CL objects
-      clReleaseMemObject(actual_buf2);
+      //clReleaseMemObject(actual_buf2);
       //clReleaseMemObject(start_stage_buf2);
       //clReleaseMemObject(end_stage_buf2);
       clReleaseKernel(cascadesum2);
