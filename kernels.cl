@@ -86,6 +86,37 @@ int calc_sum(rect_t rect, int col, int offset, int* mat) {
   return mat[p0_off] - mat[p1_off] - mat[p2_off] + mat[p3_off];
   */
 }
+float calc_sum2(rect_t rect, rect_t rect2, int col, int offset, int* mat) {
+/*
+  int4 v0 = (int4)(rect.p0[0] * col + rect.p0[1], 
+                  rect.p1[0] * col + rect.p1[1],
+                  rect.p2[0] * col + rect.p2[1],
+                  rect.p3[0] * col + rect.p3[1])
+            + (int4)offset;
+  int4 v2 = (int4)(rect2.p0[0] * col + rect2.p0[1], 
+                  rect2.p1[0] * col + rect2.p1[1],
+                  rect2.p2[0] * col + rect2.p2[1],
+                  rect2.p3[0] * col + rect2.p3[1])
+            + (int4)offset;
+*/
+  int4 y0 = (int4)(rect.p0[0], rect.p1[0], rect.p2[0], rect.p3[0]);
+  int4 x0 = (int4)(rect.p0[1], rect.p1[1], rect.p2[1], rect.p3[1]);
+  int4 y2 = (int4)(rect2.p0[0], rect2.p1[0], rect2.p2[0], rect2.p3[0]);
+  int4 x2 = (int4)(rect2.p0[1], rect2.p1[1], rect2.p2[1], rect2.p3[1]);
+  int4 v0 = y0*(int4)col + x0 + (int4)offset;
+  int4 v2 = y2*(int4)col + x2 + (int4)offset;
+/*
+  short4 y0 = (short4)(rect.p0[0], rect.p1[0], rect.p2[0], rect.p3[0]);
+  short4 x0 = (short4)(rect.p0[1], rect.p1[1], rect.p2[1], rect.p3[1]);
+  short4 y2 = (short4)(rect2.p0[0], rect2.p1[0], rect2.p2[0], rect2.p3[0]);
+  short4 x2 = (short4)(rect2.p0[1], rect2.p1[1], rect2.p2[1], rect2.p3[1]);
+  short4 v0 = y0*(short4)col + x0 + (short4)offset;
+  short4 v2 = y2*(short4)col + x2 + (short4)offset;
+  */
+  float result = dot((float4)(mat[v0.s0],-mat[v0.s1],-mat[v0.s2],mat[v0.s3]), (float4)rect.weight) +
+                 dot((float4)(mat[v2.s0],-mat[v2.s1],-mat[v2.s2],mat[v2.s3]), (float4)rect2.weight);
+  return result;
+}
 
 /*
   rects: rectangles, rects[x][0] -- scale, rects[x][1] -- y, rects[x][2] -- x
@@ -290,6 +321,22 @@ __kernel void cascadesum1(__global int *rects, __global float *vnf,
   int* sum_list_int = (int*)sum_list;
   int* tilted_list_int = (int*)tilted_list;
 
+  /*
+  int testmat[21][21];
+  for (int i=0; i<21; i++) {
+    for (int j=0; j<21; j++) {
+           testmat[i*21+j] = i * 9 + j * 3;
+    }
+  }
+  for (int i=0; i<21; i++) {
+    for (int j=0; j<21; j++) {
+           if (testmat[i*21+j] != i * 9 + j * 3)
+            return;
+    }
+  }
+  */
+
+
   float stage_sum;
   int p_offset;
   int i, j;
@@ -300,53 +347,36 @@ __kernel void cascadesum1(__global int *rects, __global float *vnf,
 
   //for( i = start_stage; i < cascade->count; i++ ) {
   for( i = start_stage; i < end_stage; i++ ) {
-      stage_sum = 0;
-      //if( cascade->stage_classifier[i].two_rects ) {
-          for( j = 0; j < cascade->stage_classifier[i].count; j++ ) {
-              __global CvHidHaarClassifier* classifier = cascade->stage_classifier[i].classifier + j; //#j classifier in the #i stage
-              CvHidHaarTreeNode node = classifier->node;
-              float t = node.threshold*variance_norm_factor; //true threshold
-              int* mat;
-              if (node.feature.tilted)
-                mat = &tilted_list_int[mat_list_offset];
-              else
-                mat = &sum_list_int[mat_list_offset];
-              //mat = &sum_list_int[scale_info.s1];
-              float sum = (float)calc_sum(node.feature.rect[0],col,p_offset,mat) * node.feature.rect[0].weight;
-              sum += calc_sum(node.feature.rect[1],col,p_offset,mat) * node.feature.rect[1].weight;
-              //if( node.feature.rect[2].p0 )
-              //  sum += calc_sum(node.feature.rect[2],col,p_offset,mat) * node.feature.rect[2].weight;
-              stage_sum += classifier->alpha[sum >= t];
-              /* no effect on performance?
-              */
-              if( stage_sum > cascade->stage_classifier[i].threshold )
-                break;
-          }
-      //} else {
-      // for( j = 0; j < cascade->stage_classifier[i].count; j++ ) {
-      // __global CvHidHaarClassifier* classifier = cascade->stage_classifier[i].classifier + j;
-      // CvHidHaarTreeNode node = classifier->node;
-      // float t = node.threshold*variance_norm_factor;
-      // if (node.feature.tilted)
-      // int* mat;
-      // mat = &tilted_list_int[mat_list_offset];
-      // else
-      // mat = &sum_list_int[mat_list_offset];
-      // float sum = calc_sum(node.feature.rect[0],col,p_offset,mat) * node.feature.rect[0].weight;
-      // sum += calc_sum(node.feature.rect[1],col,p_offset,mat) * node.feature.rect[1].weight;
-      // if( node.feature.rect[2].p0 )
-      // sum += calc_sum(node.feature.rect[2],col,p_offset,mat) * node.feature.rect[2].weight;
-      // stage_sum += classifier->alpha[sum >= t];
-      // /* no effect on performance
-      // if( stage_sum > cascade->stage_classifier[i].threshold )
-      // continue;
-      // */
-      // }
-      //}
-      if( stage_sum < cascade->stage_classifier[i].threshold ) {
-          result[id] = false;
-          return;
-      }
+     stage_sum = 0;
+     for( j = 0; j < cascade->stage_classifier[i].count; j++ ) {
+         __global CvHidHaarClassifier* classifier = cascade->stage_classifier[i].classifier + j; //#j classifier in the #i stage
+         //CvHidHaarClassifier classifier = *(cascade->stage_classifier[i].classifier + j); //#j classifier in the #i stage
+         CvHidHaarTreeNode node = classifier->node;
+         //CvHidHaarTreeNode node = classifier.node;
+         float t = node.threshold*variance_norm_factor; //true threshold
+         int* mat;
+         if (node.feature.tilted)
+           mat = &tilted_list_int[mat_list_offset];
+         else
+           mat = &sum_list_int[mat_list_offset];
+         //mat = &sum_list_int[scale_info.s1];
+         /*
+         float sum = (float)calc_sum(node.feature.rect[0],col,p_offset,mat) * node.feature.rect[0].weight;
+         sum += calc_sum(node.feature.rect[1],col,p_offset,mat) * node.feature.rect[1].weight;
+         */
+         float sum = (float)calc_sum2(node.feature.rect[0], node.feature.rect[1], 
+                              col, p_offset, mat);
+         //if( node.feature.rect[2].p0 )
+         //  sum += calc_sum(node.feature.rect[2],col,p_offset,mat) * node.feature.rect[2].weight;
+         stage_sum += classifier->alpha[sum >= t];
+         // no effect on performance?
+         if( stage_sum > cascade->stage_classifier[i].threshold )
+           break;
+     }
+     if( stage_sum < cascade->stage_classifier[i].threshold ) {
+         result[id] = false;
+         return;
+     }
   }
 
   //result[id] = true;
@@ -358,9 +388,58 @@ __kernel void test1(__global int *rects, __global float *vnf,
                          __global CvHidHaarClassifierCascade *classifiers,
                          __global uchar *sum_list, __global uchar *tilted_list,
                          int mat_len, __global int *mat_header,
-                         __global bool *result, __global int *actual_rects,
-                         __global int *actual_ids, __global int *_start_stage, __global int *_end_stage) {
-result[0] = *_start_stage;
-result[1] = *_end_stage;
-return;
+                         __global bool *result, int actual_rects,
+                         __global int *actual_ids, int start_stage, int end_stage) {
+  const int global_id = get_global_id(0);
+  if(global_id >= actual_rects) return;
+  const int id = actual_ids[global_id];
+  float variance_norm_factor = vnf[id];
+  int scale_num = rects[id * 3];
+  int y = rects[id * 3 + 1];
+  int x = rects[id * 3 + 2];
+  __global CvHidHaarClassifierCascade* cascade = &classifiers[scale_num];
+  int* sum_list_int = (int*)sum_list;
+  int* tilted_list_int = (int*)tilted_list;
+
+
+  float stage_sum;
+  int p_offset;
+  int i, j;
+  int col = mat_header[1 + scale_num * 3];
+  int mat_list_offset = mat_header[1 + scale_num * 3 + 2]/4;
+  //official start
+  //p_offset = y * (col * sizeof(int) /sizeof(sumtype)) + x;
+  p_offset = y * col + x;
+
+  //for( i = start_stage; i < cascade->count; i++ ) {
+  for( i = start_stage; i < end_stage; i++ ) {
+     stage_sum = 0;
+     for( j = 0; j < cascade->stage_classifier[i].count; j++ ) {
+         __global CvHidHaarClassifier* classifier = cascade->stage_classifier[i].classifier + j; //#j classifier in the #i stage
+         CvHidHaarTreeNode node = classifier->node;
+         float t = node.threshold*variance_norm_factor; //true threshold
+         int* mat;
+         if (node.feature.tilted)
+           mat = &tilted_list_int[mat_list_offset];
+         else
+           mat = &sum_list_int[mat_list_offset];
+         //mat = &sum_list_int[scale_info.s1];
+         float sum = (float)calc_sum(node.feature.rect[0],col,p_offset,mat) * node.feature.rect[0].weight;
+         sum += calc_sum(node.feature.rect[1],col,p_offset,mat) * node.feature.rect[1].weight;
+         if( node.feature.rect[2].p0 )
+           sum += calc_sum(node.feature.rect[2],col,p_offset,mat) * node.feature.rect[2].weight;
+         stage_sum += classifier->alpha[sum >= t];
+         /* no effect on performance?
+         */
+         if( stage_sum > cascade->stage_classifier[i].threshold )
+           break;
+     }
+     if( stage_sum < cascade->stage_classifier[i].threshold ) {
+         result[id] = false;
+         return;
+     }
+  }
+
+  //result[id] = true;
+  return;
 }

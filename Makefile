@@ -1,5 +1,5 @@
 all:
-	g++ ocl_facedetection.cpp `pkg-config --cflags --libs opencv` -lcl -I$(BEIGNET_PATH)/include -L$(BEIGNET_PATH)/build/src -o face -g
+	g++ ocl_facedetection.cpp `pkg-config --cflags --libs opencv` -lcl -I$(BEIGNET_PATH)/include -L$(BEIGNET_PATH)/build/src -o face -O3
 #all:
 	#g++ test.cpp `pkg-config --cflags --libs opencv` -lOpenCL -o face
 #all:
